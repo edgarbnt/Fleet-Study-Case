@@ -1,24 +1,13 @@
 FROM node:20-slim
 
-WORKDIR /app
+WORKDIR /backend
 
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-COPY tsconfig.json ./
-COPY src ./src
+COPY package*.json ./
+RUN npm ci
 
-RUN npm i -D typescript && npx tsc
-
-RUN rm -rf src && npm prune --omit=dev
-
-RUN mkdir -p /data
-VOLUME ["/data"]
-
-ENV NODE_ENV=production
-ENV BACKEND_PORT=4000
-ENV DATABASE_FILE=/data/app.sqlite
+COPY . .
 
 EXPOSE 4000
-
-CMD ["node", "dist/index.js"]
+CMD ["npm", "start"]
