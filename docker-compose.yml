@@ -1,15 +1,15 @@
 services:
   api:
     image: node:20-slim
-    working_dir: /app
-    command: sh -c "apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/* && npm_config_build_from_source=1 npm install && node index.js"
+    working_dir: /backend
+    command: sh -c "apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/* && npm_config_build_from_source=1 npm install && npm start"
     env_file:
       - .env
     environment:
       - PORT=${BACKEND_PORT:-4000}
       - DB_FILE=${DATABASE_FILE:-/data/app.sqlite}
     volumes:
-      - ./backend:/app
+      - ./backend:/backend
       - db_data:/data
     ports:
       - "${BACKEND_PORT:-4000}:${BACKEND_PORT:-4000}"
@@ -24,8 +24,6 @@ services:
       - HOST=0.0.0.0
       - FRONTEND_PORT=${FRONTEND_PORT:-5173}
       - BACKEND_PORT=${BACKEND_PORT:-4000}
-      - CHOKIDAR_USEPOLLING=true
-      - BROWSER=none
     volumes:
       - ./frontend:/app
     ports:
