@@ -1,18 +1,17 @@
 import React from 'react';
-import { Table, type Column } from './Table';
-import type { Device, Employee } from '../types';
-import { Button } from './Button';
+import { Table, type Column } from '../Table.tsx';
+import type { Device, Employee } from '../../types.ts';
+import { Button } from '../Button.tsx';
 
 export const DevicesTable: React.FC<{
     data: Device[];
     owners: Employee[];
     onDelete?: (id: number) => void;
-}> = ({ data, owners, onDelete }) => {
+    onRowClick?: (device: Device) => void;
+}> = ({ data, owners, onDelete, onRowClick }) => {
     const ownerNameById = React.useMemo(() => {
         const m = new Map<number, string>();
-        owners.forEach((o) => {
-            if (o.id != null) m.set(o.id, o.name);
-        });
+        owners.forEach((o) => { if (o.id != null) m.set(o.id, o.name); });
         return m;
     }, [owners]);
 
@@ -29,10 +28,10 @@ export const DevicesTable: React.FC<{
             id: 'actions',
             header: 'Actions',
             render: (row) => (
-                <Button variant="outline" small onClick={() => onDelete?.(row.id!)}>Delete</Button>
+                <Button variant="primary" small onClick={() => onDelete?.(row.id!)}>Delete</Button>
             ),
         },
     ];
 
-    return <Table<Device> data={data} columns={columns} empty="No devices yet." />;
+    return <Table<Device> data={data} columns={columns} empty="No devices yet." onRowClick={onRowClick} />;
 };

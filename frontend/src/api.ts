@@ -1,34 +1,40 @@
-import type { Employee, NewEmployee, Device, NewDevice } from './types';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
-const BASE = '/api';
-const url = (p: string) => `${BASE}${p.startsWith('/') ? p : `/${p}`}`;
-
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(url(path), options);
-    const text = await res.text();
-    const data = text ? JSON.parse(text) : null;
-    if (!res.ok) throw new Error(data?.error || res.statusText);
-    return data as T;
+async function http<T>(url: string, method: HttpMethod = 'GET', body?: any): Promise<T> {
+    const res = await fetch(url, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+        let msg = '';
+        try { msg = await res.text(); } catch {}
+        throw new Error(msg || `HTTP ${res.status}`);
+    }
+    try { return await res.json(); } catch { return undefined as T; }
 }
 
-export const api = {
-    getEmployees: () => request<Employee[]>('/employees'),
-    createEmployee: (payload: NewEmployee) =>
-        request<Employee>('/employees', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        }),
-    deleteEmployee: (id: number) =>
-        request<void>(`/employees/${id}`, { method: 'DELETE' }),
+const base = '/api';
 
-    getDevices: () => request<Device[]>('/devices'),
-    createDevice: (payload: NewDevice) =>
-        request<Device>('/devices', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        }),
-    deleteDevice: (id: number) =>
-        request<void>(`/devices/${id}`, { method: 'DELETE' }),
+export const api = {
+    getEmployees: () => http(`${base}/employees`),
+    createEmployee: (data: { name: string; role: string }) => http(`${base}/employees`, 'POST', data),
+    updateEmployee: (id: number, data: Partial<{ name: string; role: string }>) =>
+        http(`${base}/employees/${id}`, 'PUT', data),
+    deleteEmployee: async (id: number) => {
+        const res = await fetch(`${base}/employees/${id}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
+        return true;
+    },
+
+    getDevices: () => http(`${base}/devices`),
+    createDevice: (data: { name: string; type: string; owner_id: number | null }) =>
+        http(`${base}/devices`, 'POST', data),
+    updateDevice: (id: number, data: Partial<{ name: string; type: string; owner_id: number | null }>) =>
+        http(`${base}/devices/${id}`, 'PUT', data),
+    deleteDevice: async (id: number) => {
+        const res = await fetch(`${base}/devices/${id}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
+        return true;
+    },
 };

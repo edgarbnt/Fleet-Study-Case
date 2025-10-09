@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Button } from './Button';
-import { EMPLOYEE_ROLES, type EmployeeRole } from '../types';
+import { Button } from '../Button.tsx';
+import { EMPLOYEE_ROLES, type EmployeeRole } from '../../types.ts';
 
 export const EmployeeForm: React.FC<{
     onSubmit: (v: { name: string; role: EmployeeRole }) => void;
