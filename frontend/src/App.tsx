@@ -1,28 +1,24 @@
-import React, { useEffect, useState } from "react";
+import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppShell } from './components/AppShell';
+import { AppRoutes } from './routes';
 
-export default function App() {
-    const [out, setOut] = useState("…");
+const client = new QueryClient({
+    defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
+});
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch("/api/health");
-                const text = await res.text();
-                try {
-                    setOut(JSON.stringify(JSON.parse(text), null, 2));
-                } catch {
-                    setOut(text);
-                }
-            } catch (e: any) {
-                setOut(e?.message || "Erreur");
-            }
-        })();
-    }, []);
-
-    return (
-        <div style={{ maxWidth: 720, margin: "24px auto", fontFamily: "system-ui, sans-serif" }}>
-            <h1>Health</h1>
-            <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 8, whiteSpace: "pre-wrap" }}>{out}</pre>
-        </div>
-    );
-}
+export const App: React.FC = () => (
+    <BrowserRouter
+        future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+        }}
+    >
+        <QueryClientProvider client={client}>
+            <AppShell>
+                <AppRoutes />
+            </AppShell>
+        </QueryClientProvider>
+    </BrowserRouter>
+);

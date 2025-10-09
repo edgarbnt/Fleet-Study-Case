@@ -24,6 +24,7 @@ services:
       - HOST=0.0.0.0
       - FRONTEND_PORT=${FRONTEND_PORT:-5173}
       - BACKEND_PORT=${BACKEND_PORT:-4000}
+      - BACKEND_URL=http://api:${BACKEND_PORT:-4000}
     volumes:
       - ./frontend:/app
     ports:
