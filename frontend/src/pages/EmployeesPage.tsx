@@ -9,26 +9,46 @@ import { Modal } from '../components/Modal';
 import type { Employee } from '../types';
 import { EMPLOYEE_ROLES } from '../types';
 import { EmployeeEditForm } from '../components/employee/EmployeeEditForm.tsx';
-import { SingleSelectChip, type Option } from '../components/SingleSelectChip.tsx';
+import { SingleSelectChip, type Option } from '../components/filter/SingleSelectChip.tsx';
+import { Pagination } from '../components/filter/Pagination.tsx';
 
 export const EmployeesPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const roleParam = searchParams.get('role') || '';
+    const pageParam = parseInt(searchParams.get('page') || '1', 10) || 1;
+    const pageSizeParam = parseInt(searchParams.get('pageSize') || '10', 10) || 10;
 
-    const employeesFilters = useMemo(() => ({ role: roleParam || undefined }), [roleParam]);
+    const employeesFilters = useMemo(() => ({
+        role: roleParam || undefined,
+        page: pageParam,
+        pageSize: pageSizeParam,
+    }), [roleParam, pageParam, pageSizeParam]);
 
     const { list, create, remove, update } = useEmployees(employeesFilters);
     const [openCreate, setOpenCreate] = useState(false);
     const [selected, setSelected] = useState<Employee | null>(null);
 
-    const setParam = (key: string, value: string) => {
+    const setParam = (key: 'role' | 'page' | 'pageSize', value: string) => {
         const next = new URLSearchParams(searchParams);
+        if (key !== 'page') next.set('page', '1');
         if (!value) next.delete(key);
         else next.set(key, value);
         setSearchParams(next, { replace: true });
     };
 
+    const clearAll = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('role');
+        next.set('page', '1');
+        setSearchParams(next, { replace: true });
+    };
+
     const roleOptions: Option[] = EMPLOYEE_ROLES.map(r => ({ value: r, label: r }));
+
+    const page = list.data?.page || 1;
+    const pageSize = list.data?.pageSize || pageSizeParam;
+    const total = list.data?.total || 0;
+    const totalPages = list.data?.totalPages || 1;
 
     return (
         <div className="fade-in">
@@ -45,7 +65,8 @@ export const EmployeesPage = () => {
                     onChange={(val) => setParam('role', val)}
                 />
 
-                <div style={{ marginLeft: 'auto' }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                    <Button variant="outline" onClick={clearAll}>Clear filters</Button>
                     <Button onClick={() => setOpenCreate(true)}>Add employee</Button>
                 </div>
             </div>
@@ -54,11 +75,22 @@ export const EmployeesPage = () => {
                 <div>
                     {list.isLoading
                         ? 'Loading...'
-                        : <EmployeesTable
-                            data={list.data || []}
-                            onDelete={id => remove.mutate(id)}
-                            onRowClick={(emp) => setSelected(emp)}
-                        />}
+                        : <>
+                            <EmployeesTable
+                                data={list.data?.items || []}
+                                onDelete={id => remove.mutate(id)}
+                                onRowClick={(emp) => setSelected(emp)}
+                            />
+                            <Pagination
+                                page={page}
+                                pageSize={pageSize}
+                                total={total}
+                                totalPages={totalPages}
+                                onPageChange={(p) => setParam('page', String(p))}
+                                pageSizeOptions={[10, 20, 50]}
+                                onPageSizeChange={(n) => setParam('pageSize', String(n))}
+                            />
+                        </>}
                 </div>
             </Card>
 

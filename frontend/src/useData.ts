@@ -1,10 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from './api';
+import { api, type Paginated } from './api';
 import type { NewEmployee, NewDevice, Employee, Device } from './types';
 
-export function useEmployees(filters?: { role?: string }) {
+export function useEmployees(filters?: { role?: string; page?: number; pageSize?: number }) {
     const qc = useQueryClient();
-    const list = useQuery({ queryKey: ['employees', filters || {}], queryFn: () => api.getEmployees(filters) });
+    const list = useQuery<Paginated<Employee>>({
+        queryKey: ['employees', filters || {}],
+        queryFn: () => api.getEmployees(filters),
+    });
     const create = useMutation({
         mutationFn: (data: NewEmployee) => api.createEmployee(data),
         onSuccess: () => qc.invalidateQueries({ queryKey: ['employees'] })
@@ -20,9 +23,12 @@ export function useEmployees(filters?: { role?: string }) {
     return { list, create, remove, update };
 }
 
-export function useDevices(filters?: { type?: string[]; owner_id?: Array<number|'null'> }) {
+export function useDevices(filters?: { type?: string[]; owner_id?: Array<number|'null'>; page?: number; pageSize?: number }) {
     const qc = useQueryClient();
-    const list = useQuery({ queryKey: ['devices', filters || {}], queryFn: () => api.getDevices(filters) });
+    const list = useQuery<Paginated<Device>>({
+        queryKey: ['devices', filters || {}],
+        queryFn: () => api.getDevices(filters),
+    });
     const create = useMutation({
         mutationFn: (data: NewDevice) => api.createDevice(data),
         onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] })

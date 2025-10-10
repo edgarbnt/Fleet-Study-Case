@@ -9,41 +9,60 @@ import { Modal } from '../components/Modal';
 import type { Device } from '../types';
 import { DEVICE_KINDS } from '../types';
 import { DeviceEditForm } from '../components/device/DeviceEditForm.tsx';
-import { SingleSelectChip, type Option } from '../components/SingleSelectChip';
+import { SingleSelectChip, type Option } from '../components/filter/SingleSelectChip.tsx';
+import { Pagination } from '../components/filter/Pagination.tsx';
 
 export const DevicesPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
 
     const typeParam = searchParams.get('type') || '';
     const ownerParam = searchParams.get('owner_id') || '';
+    const pageParam = parseInt(searchParams.get('page') || '1', 10) || 1;
+    const pageSizeParam = parseInt(searchParams.get('pageSize') || '10', 10) || 10;
 
     const effectiveFilters = useMemo(() => {
         return {
             type: typeParam ? [typeParam] : undefined,
             owner_id: ownerParam ? [ownerParam === 'null' ? 'null' : Number(ownerParam)] : undefined,
+            page: pageParam,
+            pageSize: pageSizeParam,
         };
-    }, [typeParam, ownerParam]);
+    }, [typeParam, ownerParam, pageParam, pageSizeParam]);
 
     const { list: deviceList, create, remove, update } = useDevices(effectiveFilters);
     const { list: employeeList } = useEmployees();
     const [openCreate, setOpenCreate] = useState(false);
     const [selected, setSelected] = useState<Device | null>(null);
 
-    const owners = employeeList.data || [];
+    const owners = (employeeList.data as any)?.items || employeeList.data || [];
     const ownersLoading = employeeList.isLoading;
 
-    const setParam = (key: 'type' | 'owner_id', value: string) => {
+    const setParam = (key: 'type' | 'owner_id' | 'page' | 'pageSize', value: string) => {
         const next = new URLSearchParams(searchParams);
+        if (key !== 'page') next.set('page', '1');
         if (!value) next.delete(key);
         else next.set(key, value);
+        setSearchParams(next, { replace: true });
+    };
+
+    const clearAll = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('type');
+        next.delete('owner_id');
+        next.set('page', '1');
         setSearchParams(next, { replace: true });
     };
 
     const typeOptions: Option[] = DEVICE_KINDS.map(k => ({ value: k, label: k }));
     const ownerOptions: Option[] = [
         { value: 'null', label: 'Unassigned' },
-        ...owners.map(o => ({ value: String(o.id!), label: `${o.name}${o.role ? ` (${o.role})` : ''}` }))
+        ...owners.map((o: any) => ({ value: String(o.id!), label: `${o.name}${o.role ? ` (${o.role})` : ''}` }))
     ];
+
+    const page = deviceList.data?.page || 1;
+    const pageSize = deviceList.data?.pageSize || pageSizeParam;
+    const total = deviceList.data?.total || 0;
+    const totalPages = deviceList.data?.totalPages || 1;
 
     return (
         <div className="fade-in">
@@ -68,7 +87,8 @@ export const DevicesPage = () => {
                     onChange={(val) => setParam('owner_id', val)}
                 />
 
-                <div style={{ marginLeft: 'auto' }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                    <Button variant="outline" onClick={clearAll}>Clear filters</Button>
                     <Button onClick={() => setOpenCreate(true)}>Add device</Button>
                 </div>
             </div>
@@ -78,12 +98,23 @@ export const DevicesPage = () => {
                     {deviceList.isLoading ? (
                         'Loading...'
                     ) : (
-                        <DevicesTable
-                            data={deviceList.data || []}
-                            owners={owners}
-                            onDelete={(id) => remove.mutate(id)}
-                            onRowClick={(device) => setSelected(device)}
-                        />
+                        <>
+                            <DevicesTable
+                                data={deviceList.data?.items || []}
+                                owners={owners}
+                                onDelete={(id) => remove.mutate(id)}
+                                onRowClick={(device) => setSelected(device)}
+                            />
+                            <Pagination
+                                page={page}
+                                pageSize={pageSize}
+                                total={total}
+                                totalPages={totalPages}
+                                onPageChange={(p) => setParam('page', String(p))}
+                                pageSizeOptions={[10, 20, 50]}
+                                onPageSizeChange={(n) => setParam('pageSize', String(n))}
+                            />
+                        </>
                     )}
                 </div>
             </Card>
