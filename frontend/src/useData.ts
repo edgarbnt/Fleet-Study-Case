@@ -2,9 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 import type { NewEmployee, NewDevice, Employee, Device } from './types';
 
-export function useEmployees() {
+export function useEmployees(filters?: { role?: string }) {
     const qc = useQueryClient();
-    const list = useQuery({ queryKey: ['employees'], queryFn: api.getEmployees });
+    const list = useQuery({ queryKey: ['employees', filters || {}], queryFn: () => api.getEmployees(filters) });
     const create = useMutation({
         mutationFn: (data: NewEmployee) => api.createEmployee(data),
         onSuccess: () => qc.invalidateQueries({ queryKey: ['employees'] })
@@ -20,9 +20,9 @@ export function useEmployees() {
     return { list, create, remove, update };
 }
 
-export function useDevices() {
+export function useDevices(filters?: { type?: string[]; owner_id?: Array<number|'null'> }) {
     const qc = useQueryClient();
-    const list = useQuery({ queryKey: ['devices'], queryFn: api.getDevices });
+    const list = useQuery({ queryKey: ['devices', filters || {}], queryFn: () => api.getDevices(filters) });
     const create = useMutation({
         mutationFn: (data: NewDevice) => api.createDevice(data),
         onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] })
