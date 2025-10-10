@@ -85,6 +85,8 @@ export const DevicesPage = () => {
                     options={ownerOptions}
                     value={ownerParam}
                     onChange={(val) => setParam('owner_id', val)}
+                    searchable
+                    searchPlaceholder="Search owner…"
                 />
 
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>

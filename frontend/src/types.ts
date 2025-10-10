@@ -20,11 +20,11 @@ export interface Employee {
 export type NewEmployee = Pick<Employee, 'name' | 'role'>;
 
 export const DEVICE_KINDS = [
-    'laptop',
-    'phone',
-    'tablet',
-    'monitor',
-    'accessory',
+    'Laptop',
+    'Phone',
+    'Tablet',
+    'Monitor',
+    'Accessory',
 ] as const;
 export type DeviceKind = typeof DEVICE_KINDS[number];
 

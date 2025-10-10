@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../Button.tsx';
 import { DEVICE_KINDS, type DeviceKind, type Employee } from '../../types.ts';
+import { SingleSelectChip, type Option } from '../filter/SingleSelectChip';
 
 export const DeviceForm: React.FC<{
     owners: Employee[];
@@ -25,6 +26,11 @@ export const DeviceForm: React.FC<{
 
     const disabled = !form.name || !form.type || !!loading;
 
+    const ownerOptions: Option[] = [
+        { value: '', label: 'No owner' },
+        ...owners.map(o => ({ value: String(o.id!), label: `${o.name}${o.role ? ` (${o.role})` : ''}` })),
+    ];
+
     return (
         <form
             onSubmit={(e) => {
@@ -33,7 +39,7 @@ export const DeviceForm: React.FC<{
                 onSubmit({
                     name: form.name,
                     type: form.type as DeviceKind,
-                    owner_id: form.owner_id === '' ? null : form.owner_id,
+                    owner_id: form.owner_id === '' ? null : (form.owner_id as number),
                 });
                 set({ name: '', type: '', owner_id: '' });
             }}
@@ -58,23 +64,15 @@ export const DeviceForm: React.FC<{
                 ))}
             </select>
 
-            <select
+            <SingleSelectChip
+                label="Owner (optional)"
+                placeholder="Search owner…"
+                options={ownerOptions}
                 value={form.owner_id === '' ? '' : String(form.owner_id)}
-                onChange={(e) =>
-                    set((f) => ({
-                        ...f,
-                        owner_id: e.target.value === '' ? '' : Number(e.target.value),
-                    }))
-                }
-                aria-label="Owner (optional)"
-            >
-                <option value="">No owner</option>
-                {owners.map((o) => (
-                    <option key={o.id} value={o.id}>
-                        {o.name} {o.role ? `(${o.role})` : ''}
-                    </option>
-                ))}
-            </select>
+                onChange={(val) => set((f) => ({ ...f, owner_id: val === '' ? '' : Number(val) }))}
+                searchable
+                searchPlaceholder="Type a name…"
+            />
 
             <Button disabled={disabled} loading={loading}>Add</Button>
         </form>
