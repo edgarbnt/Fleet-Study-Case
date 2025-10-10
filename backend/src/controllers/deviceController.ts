@@ -23,15 +23,18 @@ export const getAllDevices = (req: Request, res: Response) => {
             }
         }
 
-        const name = typeof req.query.name === 'string' ? req.query.name.trim() : undefined;
+        const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+        const pageSize = Math.max(1, Math.min(100, parseInt(String(req.query.pageSize || '10'), 10) || 10));
 
-        const data = deviceModel.findAll({
-            types: types.length ? types : undefined,
-            ownerIds: ownerIds.length ? ownerIds : undefined,
-            includeUnassigned,
-            name: name && name.length ? name : undefined,
-        });
-        res.json(data);
+        const result = deviceModel.search(
+            {
+                types: types.length ? types : undefined,
+                ownerIds: ownerIds.length ? ownerIds : undefined,
+                includeUnassigned,
+            },
+            { page, pageSize }
+        );
+        res.json(result);
     } catch {
         res.status(500).json({ error: 'Failed to retrieve devices' });
     }

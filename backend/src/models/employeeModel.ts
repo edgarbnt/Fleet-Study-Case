@@ -1,67 +1,65 @@
-import { Request, Response } from 'express';
-import * as employeeModel from '../models/employeeModel';
-import * as deviceModel from '../models/deviceModel';
+import { getDb } from '../config/database';
+import { Employee } from '../types';
 
-export const getAllEmployees = (req: Request, res: Response) => {
-    try {
-        const role = typeof req.query.role === 'string' ? req.query.role : undefined;
-        res.json(employeeModel.findAll({ role }));
-    } catch {
-        res.status(500).json({ error: 'Failed to retrieve employees' });
-    }
-};
+type EmployeeFilters = { role?: string };
+type Pagination = { page: number; pageSize: number };
 
-export const getEmployeeById = (req: Request, res: Response) => {
-    try {
-        const id = parseInt(req.params.id);
-        const employee = employeeModel.findById(id);
-        if (!employee)
-            return res.status(404).json({ error: 'Employee not found' });
-        res.json(employee);
-    } catch { res.status(500).json({ error: 'Failed to retrieve employee' }); }
-};
+function buildWhere(filters: EmployeeFilters | undefined) {
+    const where: string[] = [];
+    const params: any[] = [];
+    if (filters?.role) { where.push('role = ?'); params.push(filters.role); }
+    const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+    return { whereSql, params };
+}
 
-export const createEmployee = (req: Request, res: Response) => {
-    try {
-        const { name, role } = req.body;
-        if (!name || !role)
-            return res.status(400).json({ error: 'Name and role are required' });
-        const newEmployee = employeeModel.create({ name, role });
-        res.status(201).json(newEmployee);
-    } catch { res.status(500).json({ error: 'Failed to create employee' }); }
-};
+export function search(filters: EmployeeFilters | undefined, pagination: Pagination) {
+    const { whereSql, params } = buildWhere(filters);
+    const db = getDb();
 
-export const updateEmployee = (req: Request, res: Response) => {
-    try {
-        const id = parseInt(req.params.id);
-        const { name, role } = req.body;
-        if (!name && !role)
-            return res.status(400).json({ error: 'At least one field to update is required' });
-        const updated = employeeModel.update(id, { name, role });
-        if (!updated)
-            return res.status(404).json({ error: 'Employee not found' });
-        res.json(updated);
-    } catch {
-        res.status(500).json({ error: 'Failed to update employee' }); }
-};
+    const totalStmt = db.prepare(`SELECT COUNT(*) as cnt FROM employees${whereSql}`);
+    const { cnt: total } = totalStmt.get(...params) as { cnt: number };
 
-export const deleteEmployee = (req: Request, res: Response) => {
-    try {
-        const id = parseInt(req.params.id);
-        const ok = employeeModel.remove(id);
-        if (!ok)
-            return res.status(404).json({ error: 'Employee not found' });
-        res.status(204).send();
-    } catch {
-        res.status(500).json({ error: 'Failed to delete employee' }); }
-};
+    const limit = Math.max(1, Math.min(100, pagination.pageSize || 10));
+    const page = Math.max(1, pagination.page || 1);
+    const offset = (page - 1) * limit;
 
-export const getEmployeeDevices = (req: Request, res: Response) => {
-    try {
-        const id = parseInt(req.params.id);
-        const employee = employeeModel.findById(id);
-        if (!employee)
-            return res.status(404).json({ error: 'Employee not found' });
-        res.json(deviceModel.findByOwner(id));
-    } catch { res.status(500).json({ error: 'Failed to retrieve employee devices' }); }
-};
+    const itemsStmt = db.prepare(`SELECT * FROM employees${whereSql} ORDER BY id LIMIT ? OFFSET ?`);
+    const items = itemsStmt.all(...params, limit, offset) as Employee[];
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    return { items, page, pageSize: limit, total, totalPages };
+}
+
+export function findById(id: number): Employee | undefined {
+    return getDb().prepare('SELECT * FROM employees WHERE id = ?').get(id);
+}
+
+export function create(employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Employee {
+    const { lastInsertRowid } = getDb()
+        .prepare('INSERT INTO employees (name, role) VALUES (?, ?)')
+        .run(employee.name, employee.role);
+    return findById(Number(lastInsertRowid)) as Employee;
+}
+
+export function update(id: number, updates: Partial<Employee>): Employee | undefined {
+    const existing = findById(id);
+    if (!existing) return undefined;
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name) { fields.push('name = ?'); values.push(updates.name); }
+    if (updates.role) { fields.push('role = ?'); values.push(updates.role); }
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+
+    getDb().prepare(`UPDATE employees SET ${fields.join(', ')} WHERE id = ?`).run(...values, id);
+    return findById(id);
+}
+
+export function remove(id: number): boolean {
+    const existing = findById(id);
+    if (!existing) return false;
+    getDb().prepare('UPDATE devices SET owner_id = NULL WHERE owner_id = ?').run(id);
+    getDb().prepare('DELETE FROM employees WHERE id = ?').run(id);
+    return true;
+}

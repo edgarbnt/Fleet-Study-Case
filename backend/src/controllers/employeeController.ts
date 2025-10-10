@@ -5,7 +5,11 @@ import * as deviceModel from '../models/deviceModel';
 export const getAllEmployees = (req: Request, res: Response) => {
     try {
         const role = typeof req.query.role === 'string' ? req.query.role : undefined;
-        res.json(employeeModel.findAll({ role }));
+        const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+        const pageSize = Math.max(1, Math.min(100, parseInt(String(req.query.pageSize || '10'), 10) || 10));
+
+        const result = employeeModel.search({ role }, { page, pageSize });
+        res.json(result);
     } catch {
         res.status(500).json({ error: 'Failed to retrieve employees' });
     }
