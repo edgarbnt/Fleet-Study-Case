@@ -35,8 +35,17 @@ function buildQuery(params?: Record<string, unknown>): string {
     return qs ? `?${qs}` : '';
 }
 
+export type Paginated<T> = {
+    items: T[];
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+};
+
 export const api = {
-    getEmployees: (params?: { role?: string }) => http(`${base}/employees${buildQuery(params)}`),
+    getEmployees: (params?: { role?: string; page?: number; pageSize?: number }) =>
+        http<Paginated<any>>(`${base}/employees${buildQuery(params)}`),
     createEmployee: (data: { name: string; role: string }) => http(`${base}/employees`, 'POST', data),
     updateEmployee: (id: number, data: Partial<{ name: string; role: string }>) =>
         http(`${base}/employees/${id}`, 'PUT', data),
@@ -49,7 +58,9 @@ export const api = {
     getDevices: (params?: {
         type?: string[];
         owner_id?: Array<number|'null'>;
-    }) => http(`${base}/devices${buildQuery(params)}`),
+        page?: number;
+        pageSize?: number;
+    }) => http<Paginated<any>>(`${base}/devices${buildQuery(params)}`),
     createDevice: (data: { name: string; type: string; owner_id: number | null }) =>
         http(`${base}/devices`, 'POST', data),
     updateDevice: (id: number, data: Partial<{ name: string; type: string; owner_id: number | null }>) =>
