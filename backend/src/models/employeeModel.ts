@@ -1,41 +1,67 @@
-import { getDb } from '../config/database';
-import { Employee } from '../types';
+import { Request, Response } from 'express';
+import * as employeeModel from '../models/employeeModel';
+import * as deviceModel from '../models/deviceModel';
 
-export function findAll(): Employee[] {
-    return getDb().prepare('SELECT * FROM employees ORDER BY id').all();
-}
+export const getAllEmployees = (req: Request, res: Response) => {
+    try {
+        const role = typeof req.query.role === 'string' ? req.query.role : undefined;
+        res.json(employeeModel.findAll({ role }));
+    } catch {
+        res.status(500).json({ error: 'Failed to retrieve employees' });
+    }
+};
 
-export function findById(id: number): Employee | undefined {
-    return getDb().prepare('SELECT * FROM employees WHERE id = ?').get(id);
-}
+export const getEmployeeById = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const employee = employeeModel.findById(id);
+        if (!employee)
+            return res.status(404).json({ error: 'Employee not found' });
+        res.json(employee);
+    } catch { res.status(500).json({ error: 'Failed to retrieve employee' }); }
+};
 
-export function create(employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Employee {
-    const { lastInsertRowid } = getDb()
-        .prepare('INSERT INTO employees (name, role) VALUES (?, ?)')
-        .run(employee.name, employee.role);
-    return findById(Number(lastInsertRowid)) as Employee;
-}
+export const createEmployee = (req: Request, res: Response) => {
+    try {
+        const { name, role } = req.body;
+        if (!name || !role)
+            return res.status(400).json({ error: 'Name and role are required' });
+        const newEmployee = employeeModel.create({ name, role });
+        res.status(201).json(newEmployee);
+    } catch { res.status(500).json({ error: 'Failed to create employee' }); }
+};
 
-export function update(id: number, updates: Partial<Employee>): Employee | undefined {
-    const existing = findById(id);
-    if (!existing) return undefined;
+export const updateEmployee = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { name, role } = req.body;
+        if (!name && !role)
+            return res.status(400).json({ error: 'At least one field to update is required' });
+        const updated = employeeModel.update(id, { name, role });
+        if (!updated)
+            return res.status(404).json({ error: 'Employee not found' });
+        res.json(updated);
+    } catch {
+        res.status(500).json({ error: 'Failed to update employee' }); }
+};
 
-    const fields: string[] = [];
-    const values: any[] = [];
+export const deleteEmployee = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const ok = employeeModel.remove(id);
+        if (!ok)
+            return res.status(404).json({ error: 'Employee not found' });
+        res.status(204).send();
+    } catch {
+        res.status(500).json({ error: 'Failed to delete employee' }); }
+};
 
-    if (updates.name) { fields.push('name = ?'); values.push(updates.name); }
-    if (updates.role) { fields.push('role = ?'); values.push(updates.role); }
-    fields.push('updated_at = CURRENT_TIMESTAMP');
-
-    getDb().prepare(`UPDATE employees SET ${fields.join(', ')} WHERE id = ?`).run(...values, id);
-    return findById(id);
-}
-
-export function remove(id: number): boolean {
-    const existing = findById(id);
-    if (!existing)
-        return false;
-    getDb().prepare('UPDATE devices SET owner_id = NULL WHERE owner_id = ?').run(id);
-    getDb().prepare('DELETE FROM employees WHERE id = ?').run(id);
-    return true;
-}
+export const getEmployeeDevices = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const employee = employeeModel.findById(id);
+        if (!employee)
+            return res.status(404).json({ error: 'Employee not found' });
+        res.json(deviceModel.findByOwner(id));
+    } catch { res.status(500).json({ error: 'Failed to retrieve employee devices' }); }
+};

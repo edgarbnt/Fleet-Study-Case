@@ -1,51 +1,102 @@
-import { getDb } from '../config/database';
-import { Device } from '../types';
+import { Request, Response } from 'express';
+import * as deviceModel from '../models/deviceModel';
+import * as employeeModel from '../models/employeeModel';
 
-export function findAll(): Device[] {
-    return getDb().prepare('SELECT * FROM devices ORDER BY id DESC').all();
+function toArray(v: undefined | string | string[]): string[] {
+    if (v === undefined) return [];
+    return Array.isArray(v) ? v : [v];
 }
 
-export function findById(id: number): Device | undefined {
-    return getDb().prepare('SELECT * FROM devices WHERE id = ?').get(id);
-}
+export const getAllDevices = (req: Request, res: Response) => {
+    try {
+        const types = toArray(req.query.type).filter(Boolean) as string[];
 
-export function findByOwner(ownerId: number): Device[] {
-    return getDb().prepare('SELECT * FROM devices WHERE owner_id = ?').all(ownerId);
-}
+        const ownerRaw = toArray(req.query.owner_id).filter(Boolean);
+        const ownerIds: number[] = [];
+        let includeUnassigned = false;
+        for (const o of ownerRaw) {
+            if (String(o).toLowerCase() === 'null') includeUnassigned = true;
+            else {
+                const n = parseInt(String(o), 10);
+                if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid owner_id query parameter' });
+                ownerIds.push(n);
+            }
+        }
 
-export function create(device: Omit<Device, 'id' | 'created_at' | 'updated_at'>): Device {
-    const { lastInsertRowid } = getDb()
-        .prepare('INSERT INTO devices (name, type, owner_id) VALUES (?, ?, ?)')
-        .run(device.name, device.type, device.owner_id ?? null);
-    return findById(Number(lastInsertRowid)) as Device;
-}
+        const name = typeof req.query.name === 'string' ? req.query.name.trim() : undefined;
 
-export function update(id: number, updates: Partial<Device>): Device | undefined {
-    const existing = findById(id);
-    if (!existing) return undefined;
-
-    const fields: string[] = [];
-    const values: any[] = [];
-
-    if (updates.name !== undefined) {
-        fields.push('name = ?'); values.push(updates.name);
+        const data = deviceModel.findAll({
+            types: types.length ? types : undefined,
+            ownerIds: ownerIds.length ? ownerIds : undefined,
+            includeUnassigned,
+            name: name && name.length ? name : undefined,
+        });
+        res.json(data);
+    } catch {
+        res.status(500).json({ error: 'Failed to retrieve devices' });
     }
-    if (updates.type !== undefined) {
-        fields.push('type = ?'); values.push(updates.type);
-    }
-    if (updates.owner_id !== undefined) {
-        fields.push('owner_id = ?'); values.push(updates.owner_id);
-    }
-    fields.push('updated_at = CURRENT_TIMESTAMP');
+};
 
-    getDb().prepare(`UPDATE devices SET ${fields.join(', ')} WHERE id = ?`).run(...values, id);
-    return findById(id);
-}
+export const getDeviceById = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const device = deviceModel.findById(id);
+        if (!device) return res.status(404).json({ error: 'Device not found' });
+        res.json(device);
+    } catch { res.status(500).json({ error: 'Failed to retrieve device' }); }
+};
 
-export function remove(id: number): boolean {
-    const existing = findById(id);
-    if (!existing)
-        return false;
-    getDb().prepare('DELETE FROM devices WHERE id = ?').run(id);
-    return true;
-}
+export const createDevice = (req: Request, res: Response) => {
+    try {
+        const { name, type, owner_id } = req.body;
+        if (!name || !type) return res.status(400).json({ error: 'Name and type are required' });
+        if (owner_id) {
+            const employee = employeeModel.findById(owner_id);
+            if (!employee) return res.status(400).json({ error: 'Invalid owner_id, employee not found' });
+        }
+        const newDevice = deviceModel.create({ name, type, owner_id });
+        res.status(201).json(newDevice);
+    } catch { res.status(500).json({ error: 'Failed to create device' }); }
+};
+
+export const updateDevice = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { name, type, owner_id } = req.body;
+        if (!name && !type && owner_id === undefined) {
+            return res.status(400).json({ error: 'At least one field to update is required' });
+        }
+        if (owner_id !== undefined && owner_id !== null) {
+            const employee = employeeModel.findById(owner_id);
+            if (!employee) return res.status(400).json({ error: 'Invalid owner_id, employee not found' });
+        }
+        const updated = deviceModel.update(id, { name, type, owner_id });
+        if (!updated) return res.status(404).json({ error: 'Device not found' });
+        res.json(updated);
+    } catch { res.status(500).json({ error: 'Failed to update device' }); }
+};
+
+export const deleteDevice = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const ok = deviceModel.remove(id);
+        if (!ok) return res.status(404).json({ error: 'Device not found' });
+        res.status(204).send();
+    } catch { res.status(500).json({ error: 'Failed to delete device' }); }
+};
+
+export const assignDevice = (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { owner_id } = req.body;
+        if (owner_id === undefined) return res.status(400).json({ error: 'owner_id is required' });
+        const dev = deviceModel.findById(id);
+        if (!dev) return res.status(404).json({ error: 'Device not found' });
+        if (owner_id !== null) {
+            const employee = employeeModel.findById(owner_id);
+            if (!employee) return res.status(400).json({ error: 'Invalid owner_id, employee not found' });
+        }
+        const updated = deviceModel.update(id, { owner_id });
+        res.json(updated);
+    } catch { res.status(500).json({ error: 'Failed to assign device' }); }
+};
