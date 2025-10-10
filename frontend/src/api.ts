@@ -16,8 +16,27 @@ async function http<T>(url: string, method: HttpMethod = 'GET', body?: any): Pro
 
 const base = '/api';
 
+function buildQuery(params?: Record<string, unknown>): string {
+    if (!params) return '';
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+        if (v === undefined || v === null || v === '') continue;
+        if (Array.isArray(v)) {
+            if (v.length === 0) continue;
+            for (const item of v) {
+                if (item === undefined || item === null || item === '') continue;
+                sp.append(k, String(item));
+            }
+        } else {
+            sp.set(k, String(v));
+        }
+    }
+    const qs = sp.toString();
+    return qs ? `?${qs}` : '';
+}
+
 export const api = {
-    getEmployees: () => http(`${base}/employees`),
+    getEmployees: (params?: { role?: string }) => http(`${base}/employees${buildQuery(params)}`),
     createEmployee: (data: { name: string; role: string }) => http(`${base}/employees`, 'POST', data),
     updateEmployee: (id: number, data: Partial<{ name: string; role: string }>) =>
         http(`${base}/employees/${id}`, 'PUT', data),
@@ -27,7 +46,10 @@ export const api = {
         return true;
     },
 
-    getDevices: () => http(`${base}/devices`),
+    getDevices: (params?: {
+        type?: string[];
+        owner_id?: Array<number|'null'>;
+    }) => http(`${base}/devices${buildQuery(params)}`),
     createDevice: (data: { name: string; type: string; owner_id: number | null }) =>
         http(`${base}/devices`, 'POST', data),
     updateDevice: (id: number, data: Partial<{ name: string; type: string; owner_id: number | null }>) =>

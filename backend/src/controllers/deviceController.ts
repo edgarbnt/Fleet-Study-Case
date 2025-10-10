@@ -2,9 +2,39 @@ import { Request, Response } from 'express';
 import * as deviceModel from '../models/deviceModel';
 import * as employeeModel from '../models/employeeModel';
 
-export const getAllDevices = (_req: Request, res: Response) => {
-    try { res.json(deviceModel.findAll()); }
-    catch { res.status(500).json({ error: 'Failed to retrieve devices' }); }
+function toArray(v: undefined | string | string[]): string[] {
+    if (v === undefined) return [];
+    return Array.isArray(v) ? v : [v];
+}
+
+export const getAllDevices = (req: Request, res: Response) => {
+    try {
+        const types = toArray(req.query.type).filter(Boolean) as string[];
+
+        const ownerRaw = toArray(req.query.owner_id).filter(Boolean);
+        const ownerIds: number[] = [];
+        let includeUnassigned = false;
+        for (const o of ownerRaw) {
+            if (String(o).toLowerCase() === 'null') includeUnassigned = true;
+            else {
+                const n = parseInt(String(o), 10);
+                if (Number.isNaN(n)) return res.status(400).json({ error: 'Invalid owner_id query parameter' });
+                ownerIds.push(n);
+            }
+        }
+
+        const name = typeof req.query.name === 'string' ? req.query.name.trim() : undefined;
+
+        const data = deviceModel.findAll({
+            types: types.length ? types : undefined,
+            ownerIds: ownerIds.length ? ownerIds : undefined,
+            includeUnassigned,
+            name: name && name.length ? name : undefined,
+        });
+        res.json(data);
+    } catch {
+        res.status(500).json({ error: 'Failed to retrieve devices' });
+    }
 };
 
 export const getDeviceById = (req: Request, res: Response) => {

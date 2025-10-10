@@ -2,11 +2,13 @@ import { Request, Response } from 'express';
 import * as employeeModel from '../models/employeeModel';
 import * as deviceModel from '../models/deviceModel';
 
-export const getAllEmployees = (_req: Request, res: Response) => {
+export const getAllEmployees = (req: Request, res: Response) => {
     try {
-        res.json(employeeModel.findAll());
+        const role = typeof req.query.role === 'string' ? req.query.role : undefined;
+        res.json(employeeModel.findAll({ role }));
     } catch {
-        res.status(500).json({ error: 'Failed to retrieve employees' }); }
+        res.status(500).json({ error: 'Failed to retrieve employees' });
+    }
 };
 
 export const getEmployeeById = (req: Request, res: Response) => {
