@@ -172,6 +172,8 @@ The frontend dev server proxies `/api` to `BACKEND_URL` (configured via Vite and
     - Chip‑style selects using a consistent border radius and dark theme
     - Owner filter is searchable (typeahead) to handle large datasets
     - “Clear filters” resets all filter query params and returns to page 1
+- Sorting
+    - sorting the emplloyees and devices by alphabetical order of name, by date created or date updated
 - Pagination
     - Page navigation and an inline “Rows per page” dropdown (drop‑up), both synced to the URL
 - Modals
