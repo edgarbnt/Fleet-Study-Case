@@ -15,20 +15,29 @@ import { Pagination } from '../components/filter/Pagination.tsx';
 export const EmployeesPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const roleParam = searchParams.get('role') || '';
+    const sortParam = searchParams.get('sort') || '';
     const pageParam = parseInt(searchParams.get('page') || '1', 10) || 1;
     const pageSizeParam = parseInt(searchParams.get('pageSize') || '10', 10) || 10;
+
+    const [sortByParam, sortDirParam] = useMemo(() => {
+        if (!sortParam.includes(':')) return ['', ''];
+        const [sb, sd] = sortParam.split(':');
+        return [sb, sd];
+    }, [sortParam]);
 
     const employeesFilters = useMemo(() => ({
         role: roleParam || undefined,
         page: pageParam,
         pageSize: pageSizeParam,
-    }), [roleParam, pageParam, pageSizeParam]);
+        sortBy: (sortByParam || undefined) as any,
+        sortDir: (sortDirParam || undefined) as any,
+    }), [roleParam, pageParam, pageSizeParam, sortByParam, sortDirParam]);
 
     const { list, create, remove, update } = useEmployees(employeesFilters);
     const [openCreate, setOpenCreate] = useState(false);
     const [selected, setSelected] = useState<Employee | null>(null);
 
-    const setParam = (key: 'role' | 'page' | 'pageSize', value: string) => {
+    const setParam = (key: 'role' | 'page' | 'pageSize' | 'sort', value: string) => {
         const next = new URLSearchParams(searchParams);
         if (key !== 'page') next.set('page', '1');
         if (!value) next.delete(key);
@@ -39,11 +48,20 @@ export const EmployeesPage = () => {
     const clearAll = () => {
         const next = new URLSearchParams(searchParams);
         next.delete('role');
+        next.delete('sort');
         next.set('page', '1');
         setSearchParams(next, { replace: true });
     };
 
     const roleOptions: Option[] = EMPLOYEE_ROLES.map(r => ({ value: r, label: r }));
+    const sortOptions: Option[] = [
+        { value: 'name:asc', label: 'Name A→Z' },
+        { value: 'name:desc', label: 'Name Z→A' },
+        { value: 'created_at:asc', label: 'Created oldest→newest' },
+        { value: 'created_at:desc', label: 'Created newest→oldest' },
+        { value: 'updated_at:asc', label: 'Updated oldest→newest' },
+        { value: 'updated_at:desc', label: 'Updated newest→oldest' },
+    ];
 
     const page = list.data?.page || 1;
     const pageSize = list.data?.pageSize || pageSizeParam;
@@ -63,6 +81,13 @@ export const EmployeesPage = () => {
                     options={roleOptions}
                     value={roleParam}
                     onChange={(val) => setParam('role', val)}
+                />
+                <SingleSelectChip
+                    label="Sort"
+                    placeholder="Select sort…"
+                    options={sortOptions}
+                    value={sortParam}
+                    onChange={(val) => setParam('sort', val)}
                 />
 
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -101,15 +126,14 @@ export const EmployeesPage = () => {
                 />
             </Modal>
 
-            <Modal open={!!selected} title={selected ? `Edit employee: ${selected.name}` : 'Edit employee'} onClose={() => setSelected(null)}>
-                {selected ? (
+            <Modal open={!!selected} title="Edit employee" onClose={() => setSelected(null)}>
+                {selected && (
                     <EmployeeEditForm
                         initial={selected}
                         loading={update.isPending}
-                        onCancel={() => setSelected(null)}
-                        onSubmit={(data) => update.mutate({ id: selected.id!, data }, { onSuccess: () => setSelected(null) })}
+                        onSubmit={(v) => update.mutate({ id: selected.id!, data: v }, { onSuccess: () => setSelected(null) })}
                     />
-                ) : null}
+                )}
             </Modal>
         </div>
     );
