@@ -1,38 +1,31 @@
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 async function http<T>(url: string, method: HttpMethod = 'GET', body?: any): Promise<T> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     const res = await fetch(url, {
         method,
-        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        headers,
         body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) {
-        let msg = '';
-        try { msg = await res.text(); } catch {}
-        throw new Error(msg || `HTTP ${res.status}`);
-    }
-    try { return await res.json(); } catch { return undefined as T; }
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
 }
 
 const base = '/api';
 
 function buildQuery(params?: Record<string, unknown>): string {
     if (!params) return '';
-    const sp = new URLSearchParams();
+    const qp = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) {
         if (v === undefined || v === null || v === '') continue;
         if (Array.isArray(v)) {
-            if (v.length === 0) continue;
-            for (const item of v) {
-                if (item === undefined || item === null || item === '') continue;
-                sp.append(k, String(item));
-            }
+            for (const item of v) qp.append(k, String(item));
         } else {
-            sp.set(k, String(v));
+            qp.set(k, String(v));
         }
     }
-    const qs = sp.toString();
-    return qs ? `?${qs}` : '';
+    const s = qp.toString();
+    return s ? `?${s}` : '';
 }
 
 export type Paginated<T> = {
@@ -44,30 +37,36 @@ export type Paginated<T> = {
 };
 
 export const api = {
-    getEmployees: (params?: { role?: string; page?: number; pageSize?: number }) =>
-        http<Paginated<any>>(`${base}/employees${buildQuery(params)}`),
+    getEmployees: (params?: {
+        role?: string;
+        page?: number;
+        pageSize?: number;
+        sortBy?: 'name' | 'created_at' | 'updated_at';
+        sortDir?: 'asc' | 'desc';
+    }) => http<Paginated<any>>(`${base}/employees${buildQuery(params)}`),
     createEmployee: (data: { name: string; role: string }) => http(`${base}/employees`, 'POST', data),
     updateEmployee: (id: number, data: Partial<{ name: string; role: string }>) =>
         http(`${base}/employees/${id}`, 'PUT', data),
     deleteEmployee: async (id: number) => {
         const res = await fetch(`${base}/employees/${id}`, { method: 'DELETE' });
-        if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(await res.text());
         return true;
     },
 
     getDevices: (params?: {
         type?: string[];
-        owner_id?: Array<number|'null'>;
+        owner_id?: Array<number | 'null'>;
         page?: number;
         pageSize?: number;
+        sortBy?: 'name' | 'created_at' | 'updated_at';
+        sortDir?: 'asc' | 'desc';
     }) => http<Paginated<any>>(`${base}/devices${buildQuery(params)}`),
-    createDevice: (data: { name: string; type: string; owner_id: number | null }) =>
-        http(`${base}/devices`, 'POST', data),
+    createDevice: (data: { name: string; type: string; owner_id?: number | null }) => http(`${base}/devices`, 'POST', data),
     updateDevice: (id: number, data: Partial<{ name: string; type: string; owner_id: number | null }>) =>
         http(`${base}/devices/${id}`, 'PUT', data),
     deleteDevice: async (id: number) => {
         const res = await fetch(`${base}/devices/${id}`, { method: 'DELETE' });
-        if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(await res.text());
         return true;
     },
 };

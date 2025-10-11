@@ -2,7 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type Paginated } from './api';
 import type { NewEmployee, NewDevice, Employee, Device } from './types';
 
-export function useEmployees(filters?: { role?: string; page?: number; pageSize?: number }) {
+export function useEmployees(filters?: {
+    role?: string;
+    page?: number;
+    pageSize?: number;
+    sortBy?: 'name' | 'created_at' | 'updated_at';
+    sortDir?: 'asc' | 'desc';
+}) {
     const qc = useQueryClient();
     const list = useQuery<Paginated<Employee>>({
         queryKey: ['employees', filters || {}],
@@ -23,7 +29,14 @@ export function useEmployees(filters?: { role?: string; page?: number; pageSize?
     return { list, create, remove, update };
 }
 
-export function useDevices(filters?: { type?: string[]; owner_id?: Array<number|'null'>; page?: number; pageSize?: number }) {
+export function useDevices(filters?: {
+    type?: string[];
+    owner_id?: Array<number|'null'>;
+    page?: number;
+    pageSize?: number;
+    sortBy?: 'name' | 'created_at' | 'updated_at';
+    sortDir?: 'asc' | 'desc';
+}) {
     const qc = useQueryClient();
     const list = useQuery<Paginated<Device>>({
         queryKey: ['devices', filters || {}],

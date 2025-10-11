@@ -25,14 +25,13 @@ export const getAllDevices = (req: Request, res: Response) => {
 
         const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
         const pageSize = Math.max(1, Math.min(100, parseInt(String(req.query.pageSize || '10'), 10) || 10));
+        const sortBy = typeof req.query.sortBy === 'string' ? (req.query.sortBy as any) : undefined;
+        const sortDir = typeof req.query.sortDir === 'string' ? (req.query.sortDir as any) : undefined;
 
         const result = deviceModel.search(
-            {
-                types: types.length ? types : undefined,
-                ownerIds: ownerIds.length ? ownerIds : undefined,
-                includeUnassigned,
-            },
-            { page, pageSize }
+            { type: types.length ? types : undefined, ownerIds, includeUnassigned },
+            { page, pageSize },
+            { sortBy, sortDir },
         );
         res.json(result);
     } catch {

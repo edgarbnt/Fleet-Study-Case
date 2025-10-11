@@ -17,8 +17,15 @@ export const DevicesPage = () => {
 
     const typeParam = searchParams.get('type') || '';
     const ownerParam = searchParams.get('owner_id') || '';
+    const sortParam = searchParams.get('sort') || '';
     const pageParam = parseInt(searchParams.get('page') || '1', 10) || 1;
     const pageSizeParam = parseInt(searchParams.get('pageSize') || '10', 10) || 10;
+
+    const [sortByParam, sortDirParam] = useMemo(() => {
+        if (!sortParam.includes(':')) return ['', ''];
+        const [sb, sd] = sortParam.split(':');
+        return [sb, sd];
+    }, [sortParam]);
 
     const effectiveFilters = useMemo(() => {
         return {
@@ -26,8 +33,10 @@ export const DevicesPage = () => {
             owner_id: ownerParam ? [ownerParam === 'null' ? 'null' : Number(ownerParam)] : undefined,
             page: pageParam,
             pageSize: pageSizeParam,
+            sortBy: (sortByParam || undefined) as any,
+            sortDir: (sortDirParam || undefined) as any,
         };
-    }, [typeParam, ownerParam, pageParam, pageSizeParam]);
+    }, [typeParam, ownerParam, pageParam, pageSizeParam, sortByParam, sortDirParam]);
 
     const { list: deviceList, create, remove, update } = useDevices(effectiveFilters);
     const { list: employeeList } = useEmployees();
@@ -37,7 +46,7 @@ export const DevicesPage = () => {
     const owners = (employeeList.data as any)?.items || employeeList.data || [];
     const ownersLoading = employeeList.isLoading;
 
-    const setParam = (key: 'type' | 'owner_id' | 'page' | 'pageSize', value: string) => {
+    const setParam = (key: 'type' | 'owner_id' | 'page' | 'pageSize' | 'sort', value: string) => {
         const next = new URLSearchParams(searchParams);
         if (key !== 'page') next.set('page', '1');
         if (!value) next.delete(key);
@@ -49,14 +58,25 @@ export const DevicesPage = () => {
         const next = new URLSearchParams(searchParams);
         next.delete('type');
         next.delete('owner_id');
+        next.delete('sort');
         next.set('page', '1');
+        next.set('pageSize', '10');
         setSearchParams(next, { replace: true });
     };
 
-    const typeOptions: Option[] = DEVICE_KINDS.map(k => ({ value: k, label: k }));
+    const typeOptions: Option[] = DEVICE_KINDS.map(t => ({ value: t, label: t }));
     const ownerOptions: Option[] = [
+        { value: '', label: 'Any owner' },
         { value: 'null', label: 'Unassigned' },
-        ...owners.map((o: any) => ({ value: String(o.id!), label: `${o.name}${o.role ? ` (${o.role})` : ''}` }))
+        ...owners.map((o: any) => ({ value: String(o.id), label: o.name })),
+    ];
+    const sortOptions: Option[] = [
+        { value: 'name:asc', label: 'Name A→Z' },
+        { value: 'name:desc', label: 'Name Z→A' },
+        { value: 'created_at:asc', label: 'Created oldest→newest' },
+        { value: 'created_at:desc', label: 'Created newest→oldest' },
+        { value: 'updated_at:asc', label: 'Updated oldest→newest' },
+        { value: 'updated_at:desc', label: 'Updated newest→oldest' },
     ];
 
     const page = deviceList.data?.page || 1;
@@ -70,7 +90,7 @@ export const DevicesPage = () => {
                 <h2>Devices</h2>
             </div>
 
-            <div className="filter-row mt">
+            <div className="filter-row mt" style={{ gap: 8 }}>
                 <SingleSelectChip
                     label="Type"
                     placeholder="Select type…"
@@ -78,15 +98,19 @@ export const DevicesPage = () => {
                     value={typeParam}
                     onChange={(val) => setParam('type', val)}
                 />
-
                 <SingleSelectChip
                     label="Owner"
                     placeholder="Select owner…"
                     options={ownerOptions}
                     value={ownerParam}
                     onChange={(val) => setParam('owner_id', val)}
-                    searchable
-                    searchPlaceholder="Search owner…"
+                />
+                <SingleSelectChip
+                    label="Sort"
+                    placeholder="Select sort…"
+                    options={sortOptions}
+                    value={sortParam}
+                    onChange={(val) => setParam('sort', val)}
                 />
 
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -123,7 +147,7 @@ export const DevicesPage = () => {
 
             <Modal open={openCreate} title="Add device" onClose={() => setOpenCreate(false)}>
                 {ownersLoading ? (
-                    <p className="text-muted">Loading employees (owners)…</p>
+                    'Loading owners…'
                 ) : (
                     <DeviceForm
                         owners={owners}
@@ -133,16 +157,15 @@ export const DevicesPage = () => {
                 )}
             </Modal>
 
-            <Modal open={!!selected} title={selected ? `Edit device: ${selected.name}` : 'Edit device'} onClose={() => setSelected(null)}>
-                {selected ? (
+            <Modal open={!!selected} title="Edit device" onClose={() => setSelected(null)}>
+                {selected && (
                     <DeviceEditForm
                         initial={selected}
                         owners={owners}
                         loading={update.isPending}
-                        onCancel={() => setSelected(null)}
-                        onSubmit={(data) => update.mutate({ id: selected.id!, data }, { onSuccess: () => setSelected(null) })}
+                        onSubmit={(v) => update.mutate({ id: selected.id!, data: v }, { onSuccess: () => setSelected(null) })}
                     />
-                ) : null}
+                )}
             </Modal>
         </div>
     );
